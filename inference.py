@@ -570,9 +570,12 @@ def main() -> int:
         # Strict evaluator output: only [START]/[STEP]/[END] lines
         print("[START]")
         for r in results:
-            status = "PASS" if r["passed"] else "FAIL"
+            status = "pass" if r["passed"] else "fail"
             print(f"[STEP] {r['task_id']} {status} score={r['score']}")
-        print(f"[END] tasks_passed={passed_count}/{len(results)} overall_pass={overall_pass} runtime_seconds={total_elapsed}")
+        overall_pass_str = "true" if overall_pass else "false"
+        print(
+            f"[END] tasks_passed={passed_count}/{len(results)} overall_pass={overall_pass_str} runtime_seconds={total_elapsed}"
+        )
     else:
         print("\n" + "=" * 55)
         print("OPENENV RESULTS")
@@ -596,5 +599,5 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except Exception as exc:
-        print(f"[END] tasks_passed=0/3 overall_pass=False runtime_seconds=0 error={type(exc).__name__}")
+        print(f"[END] tasks_passed=0/3 overall_pass=false runtime_seconds=0 error={type(exc).__name__}")
         raise
