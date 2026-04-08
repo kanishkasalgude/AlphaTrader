@@ -48,8 +48,6 @@ RUN mkdir -p logs
 COPY test_imports.py ./
 RUN python test_imports.py
 
-# Run inference (CLI output), then keep Space alive by serving a tiny HTTP endpoint.
-# If `index.html` exists, it will be served instead of a directory listing.
-# Hugging Face provides $PORT at runtime.
-COPY index.html ./
-CMD ["sh", "-c", "python -u inference.py && python -m http.server ${PORT:-7860} --bind 0.0.0.0"]
+# Run inference (CLI output), then keep Space alive by binding $PORT.
+# No UI files/pages are served; this is only to satisfy Spaces health checks.
+CMD ["sh", "-c", "python -u inference.py && python -c \"import os; from http.server import BaseHTTPRequestHandler, HTTPServer;\\nclass H(BaseHTTPRequestHandler):\\n  def log_message(self, *a): pass\\n  def do_GET(self): self.send_response(204); self.end_headers()\\nHTTPServer(('0.0.0.0', int(os.getenv('PORT','7860'))), H).serve_forever()\""]
