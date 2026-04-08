@@ -49,4 +49,4 @@ COPY test_imports.py ./
 RUN python test_imports.py
 
 # Run inference
-CMD ["python", "inference.py"]
+CMD ["bash", "-lc", "python -u inference.py && tail -f /dev/null"]
