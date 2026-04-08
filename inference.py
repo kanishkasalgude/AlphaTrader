@@ -7,6 +7,14 @@ HF_TOKEN = os.getenv("HF_TOKEN")
 if HF_TOKEN is None:
     raise ValueError("HF_TOKEN environment variable is required")
 
+def reset(self):
+    """Reset environment to initial state"""
+    self.state = self.initial_state
+    return self.state
+
+def render(self, mode='human'):
+    pass
+
 client = OpenAI(
     base_url=API_BASE_URL,
     api_key=HF_TOKEN,
