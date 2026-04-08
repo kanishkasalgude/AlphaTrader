@@ -64,6 +64,14 @@ log.addHandler(_file_handler)
 log.addHandler(_con_handler)
 
 _SUMMARY_ONLY = os.environ.get("OPENENV_SUMMARY_ONLY", "").strip() in {"1", "true", "TRUE", "yes", "YES"}
+_EVAL_MODE = os.environ.get("OPENENV_EVAL_MODE", "").strip() in {"1", "true", "TRUE", "yes", "YES"}
+
+if _EVAL_MODE:
+    # Evaluator mode: do not emit logs to stdout (only the required [START]/[STEP]/[END] lines)
+    try:
+        log.removeHandler(_con_handler)
+    except Exception:
+        pass
 
 def _maybe_print_llm_insight(
     symbol: str,
@@ -132,7 +140,7 @@ def load_data() -> pd.DataFrame:
             "Run data/pipeline.py first."
         )
     df = pd.read_parquet(PARQUET_PATH)
-    if not _SUMMARY_ONLY:
+    if not (_SUMMARY_ONLY or _EVAL_MODE):
         log.info(f"Loaded data: {len(df)} rows | symbols: {df['Symbol'].unique().tolist()}")
     return df
 
@@ -141,7 +149,8 @@ def get_symbol_df(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
     """Extract, rename close, sort, select features, drop NaN."""
     sym_df = df[df["Symbol"] == symbol].copy()
     if sym_df.empty:
-        print(f"Symbol '{symbol}' missing from local cache. Auto-fetching via yfinance...")
+        if not (_SUMMARY_ONLY or _EVAL_MODE):
+            print(f"Symbol '{symbol}' missing from local cache. Auto-fetching via yfinance...")
         raw_df = yf.download(symbol, period="2y", interval="1d", auto_adjust=True)
         if raw_df.empty:
             raise ValueError(f"yfinance failed to fetch data for '{symbol}'.")
@@ -184,7 +193,7 @@ def get_symbol_df(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
 
     available = [c for c in FEATURE_COLS if c in sym_df.columns]
     
-    if not _SUMMARY_ONLY:
+    if not (_SUMMARY_ONLY or _EVAL_MODE):
         print(f"\n--- Validation for {symbol} ---")
         print(sym_df[available].head())
     
@@ -196,7 +205,7 @@ def get_symbol_df(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
                  log.warning(f"Critical column '{c}' for '{symbol}' has {nan_count} NaNs.")
     
     sym_df = sym_df[available].dropna().reset_index(drop=True)
-    if not _SUMMARY_ONLY:
+    if not (_SUMMARY_ONLY or _EVAL_MODE):
         print(f"Final usable rows for {symbol}: {len(sym_df)}")
     
     if len(sym_df) < 50:
@@ -306,7 +315,7 @@ def run_episode(env: TradingEnv, sym: str, task_id: str = "task1", seed: int = S
 # Task runners
 # ---------------------------------------------------------------------------
 def run_task1(df: pd.DataFrame) -> dict:
-    if _SUMMARY_ONLY:
+    if _SUMMARY_ONLY or _EVAL_MODE:
         # Still run the task, but do not print intermediate output
         sym_df = get_symbol_df(df, TASK1_SYMBOL)
         env = TradingEnv(sym_df, initial_capital=INITIAL_CAPITAL)
@@ -355,7 +364,7 @@ def run_task1(df: pd.DataFrame) -> dict:
 
 
 def run_task2(df: pd.DataFrame) -> dict:
-    if _SUMMARY_ONLY:
+    if _SUMMARY_ONLY or _EVAL_MODE:
         all_ph = []
         per_stock = {}
         for symbol in TASK2_SYMBOLS:
@@ -421,7 +430,7 @@ def run_task2(df: pd.DataFrame) -> dict:
 
 
 def run_task3(df: pd.DataFrame) -> dict:
-    if _SUMMARY_ONLY:
+    if _SUMMARY_ONLY or _EVAL_MODE:
         sym_df = get_symbol_df(df, TASK3_SYMBOL)
         conservative_reward = RewardCalculator(
             pnl_scale=0.8,
@@ -508,11 +517,11 @@ def main() -> int:
     TASK3_SYMBOL = args.task3
 
     start_time = time.time()
-    if not _SUMMARY_ONLY:
+    if not (_SUMMARY_ONLY or _EVAL_MODE):
         log.info("AlphaTrader-RL | OpenEnv Inference")
         log.info(f"Seed: {SEED} | Initial capital: {INITIAL_CAPITAL:,.0f}")
 
-    df = load_data() if not _SUMMARY_ONLY else pd.read_parquet(PARQUET_PATH)
+    df = load_data() if not (_SUMMARY_ONLY or _EVAL_MODE) else pd.read_parquet(PARQUET_PATH)
 
     results = []
 
@@ -546,7 +555,7 @@ def main() -> int:
         "results":              results,
     }
 
-    if not _SUMMARY_ONLY:
+    if not (_SUMMARY_ONLY or _EVAL_MODE):
         log.info("=" * 55)
         log.info(f"FINAL: {passed_count}/{len(results)} tasks passed")
         log.info(f"Total runtime: {total_elapsed}s")
@@ -554,22 +563,38 @@ def main() -> int:
     output_path = "inference_results.json"
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, default=str)
-    if not _SUMMARY_ONLY:
+    if not (_SUMMARY_ONLY or _EVAL_MODE):
         log.info(f"Results written to: {output_path}")
 
-    print("\n" + "=" * 55)
-    print("OPENENV RESULTS")
-    print("=" * 55)
-    for r in results:
-        status = "PASS" if r["passed"] else "FAIL"
-        print(f"  [{status}] {r['task_id']:<30}  score={r['score']}")
-    print(f"\n  Tasks passed : {passed_count}/{len(results)}")
-    print(f"  Overall pass : {overall_pass}")
-    print(f"  Runtime      : {total_elapsed}s")
-    print("=" * 55)
+    if _EVAL_MODE:
+        # Strict evaluator output: only [START]/[STEP]/[END] lines
+        print("[START]")
+        for r in results:
+            status = "PASS" if r["passed"] else "FAIL"
+            print(f"[STEP] {r['task_id']} {status} score={r['score']}")
+        print(f"[END] tasks_passed={passed_count}/{len(results)} overall_pass={overall_pass} runtime_seconds={total_elapsed}")
+    else:
+        print("\n" + "=" * 55)
+        print("OPENENV RESULTS")
+        print("=" * 55)
+        for r in results:
+            status = "PASS" if r["passed"] else "FAIL"
+            print(f"  [{status}] {r['task_id']:<30}  score={r['score']}")
+        print(f"\n  Tasks passed : {passed_count}/{len(results)}")
+        print(f"  Overall pass : {overall_pass}")
+        print(f"  Runtime      : {total_elapsed}s")
+        print("=" * 55)
 
     return 0 if overall_pass else 1
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    if not _EVAL_MODE:
+        sys.exit(main())
+
+    # Evaluator mode must always print [END], even on exceptions.
+    try:
+        sys.exit(main())
+    except Exception as exc:
+        print(f"[END] tasks_passed=0/3 overall_pass=False runtime_seconds=0 error={type(exc).__name__}")
+        raise
