@@ -49,5 +49,7 @@ COPY test_imports.py ./
 RUN python test_imports.py
 
 # Run inference (CLI output), then keep Space alive by serving a tiny HTTP endpoint.
+# If `index.html` exists, it will be served instead of a directory listing.
 # Hugging Face provides $PORT at runtime.
-CMD ["sh", "-c", "python -u inference.py && python -m http.server ${PORT:-7860}"]
+COPY index.html ./
+CMD ["sh", "-c", "python -u inference.py && python -m http.server ${PORT:-7860} --bind 0.0.0.0"]

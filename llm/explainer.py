@@ -149,11 +149,8 @@ def get_llm_explanation(
 ) -> str | None:
     """
     Lightweight single-sentence explainer used by `inference.py`.
-    Returns None if AI is unavailable.
+    Returns a short "[AI Unavailable] ..." string if AI is unavailable.
     """
-    if not os.environ.get("GROQ_API_KEY"):
-        return None
-
     prompt = (
         "You are a trading analyst.\n"
         f"Stock: {symbol}, Action: {action}\n"
@@ -162,8 +159,6 @@ def get_llm_explanation(
     )
 
     text = _call_llm(prompt)
-    if text.startswith("[AI Unavailable]"):
-        return None
     return text.strip()
 
 
