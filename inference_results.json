@@ -1,0 +1,74 @@
+{
+  "environment": "AlphaTrader-RL",
+  "version": "1.0.0",
+  "seed": 42,
+  "total_runtime_seconds": 9.37,
+  "tasks_passed": 2,
+  "tasks_total": 3,
+  "overall_pass": false,
+  "results": [
+    {
+      "task_id": "task1_single_stock",
+      "difficulty": "easy",
+      "metric": "total_return_pct",
+      "threshold": "> 0.0",
+      "score": 0.4842,
+      "passed": true,
+      "message": "Return 48.42% \u2014 PASS",
+      "episode": {
+        "total_return_pct": 48.42,
+        "max_drawdown_pct": -9.35,
+        "sharpe_ratio": 0.648,
+        "final_portfolio_value": 148415.4,
+        "total_reward": -287.679,
+        "n_steps": 2001
+      },
+      "runtime_seconds": 2.24
+    },
+    {
+      "task_id": "task2_multi_stock_portfolio",
+      "difficulty": "medium",
+      "metric": "avg_sharpe_ratio",
+      "threshold": "> 0.5",
+      "score": 0.042,
+      "passed": false,
+      "message": "Avg Sharpe 0.0839 \u2014 FAIL",
+      "per_stock": {
+        "GOLDBEES.NS": {
+          "return_pct": 2.93,
+          "sharpe": 0.111,
+          "max_dd": -9.42
+        },
+        "NMDC.NS": {
+          "return_pct": -4.61,
+          "sharpe": -0.058,
+          "max_dd": -28.56
+        },
+        "SILVERBEES.NS": {
+          "return_pct": 6.1,
+          "sharpe": 0.198,
+          "max_dd": -9.85
+        }
+      },
+      "runtime_seconds": 5.7
+    },
+    {
+      "task_id": "task3_volatile_survival",
+      "difficulty": "hard",
+      "metric": "max_drawdown_pct",
+      "threshold": "> -25.0",
+      "score": 0.9981,
+      "passed": true,
+      "message": "Max Drawdown -0.05% \u2014 PASS",
+      "episode": {
+        "total_return_pct": 3.52,
+        "max_drawdown_pct": -0.05,
+        "sharpe_ratio": 0.594,
+        "final_portfolio_value": 103522.55,
+        "total_reward": 1.9509,
+        "n_steps": 2001
+      },
+      "runtime_seconds": 1.38
+    }
+  ]
+}
