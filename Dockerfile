@@ -48,5 +48,6 @@ RUN mkdir -p logs
 COPY test_imports.py ./
 RUN python test_imports.py
 
-# Run inference (CLI output only)
-CMD ["python", "-u", "inference.py"]
+# Run inference (CLI output), then keep Space alive by serving a tiny HTTP endpoint.
+# Hugging Face provides $PORT at runtime.
+CMD ["sh", "-c", "python -u inference.py && python -m http.server ${PORT:-7860}"]
