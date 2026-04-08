@@ -69,9 +69,8 @@ log.addHandler(_con_handler)
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://api-inference.huggingface.co/v1")
 MODEL_NAME   = os.environ.get("MODEL_NAME", "mistralai/Mistral-7B-Instruct-v0.3")
 
-API_KEY = os.environ.get("GROQ_API_KEY") or os.environ.get("HF_TOKEN", "dummy")
+API_KEY = os.environ.get("OPENAI_API_KEY") or os.environ.get("HF_TOKEN", "dummy")
 llm_client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
-
 
 def get_llm_explanation(symbol, action, rsi, macd_hist, dist_ema_50, ret):
     try:

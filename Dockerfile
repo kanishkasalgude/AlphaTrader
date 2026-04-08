@@ -11,7 +11,7 @@ LABEL version="1.0.0"
 
 # System deps (minimal)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Working directory
@@ -26,7 +26,6 @@ COPY trading_env.py   ./
 COPY graders.py       ./
 COPY inference.py     ./
 COPY openenv.yaml     ./
-COPY .env              ./
 
 # Copy environment module (reward.py lives here)
 COPY environment/ ./environment/
@@ -47,13 +46,13 @@ RUN mkdir -p logs
 
 # Health check: verify all imports work
 RUN python -c "\
-from trading_env import TradingEnv; \
-from graders import grade_task1, grade_task2, grade_task3; \
-from environment.reward import RewardCalculator; \
-from data.pipeline import FeatureEngineer; \
-from api import API_BASE_URL, MODEL_NAME; \
-from llm.explainer import explain_trade; \
-print('All imports OK')"
+    from trading_env import TradingEnv; \
+    from graders import grade_task1, grade_task2, grade_task3; \
+    from environment.reward import RewardCalculator; \
+    from data.pipeline import FeatureEngineer; \
+    from api import API_BASE_URL, MODEL_NAME; \
+    from llm.explainer import explain_trade; \
+    print('All imports OK')"
 
 # Run inference
 CMD ["python", "inference.py"]
