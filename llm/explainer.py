@@ -1,8 +1,8 @@
 """
-AlphaTrader-RL | LLM Explainer (OpenAI-compatible — xAI Grok)
-==============================================================
-Uses the OpenAI Python SDK pointed at xAI's API (https://api.x.ai/v1)
-to generate plain-English explanations of trading decisions.
+AlphaTrader-RL | LLM Explainer (Groq)
+====================================
+Uses Groq's native Python SDK (no OpenAI-compat shim) to generate
+plain-English explanations of trading decisions.
 
 Functions
 ---------
@@ -16,21 +16,18 @@ explain_live_signal(symbol, signal, sentiment, news_summary)
     → concise rationale for a live trading signal based on sentiment.
 """
 import logging
+import os
 from typing import Any, Dict
 
-from openai import OpenAI
-
-from api import API_KEY, API_BASE_URL, MODEL_NAME
+from groq import Groq
 
 logger = logging.getLogger("LLMExplainer")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# OpenAI-compatible client (xAI Grok)
+# Groq client (native)
 # ──────────────────────────────────────────────────────────────────────────────
-_client = OpenAI(
-    api_key=API_KEY,
-    base_url=API_BASE_URL,
-)
+_client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
+_MODEL_NAME = os.environ.get("MODEL_NAME", "llama3-70b-8192")
 
 _SYSTEM_PROMPT = (
     "You are a professional financial analyst for AlphaTrader-RL. "
@@ -40,12 +37,15 @@ _SYSTEM_PROMPT = (
 
 def _call_llm(prompt: str) -> str:
     """
-    Send a chat-completion request via the OpenAI SDK.
+    Send a chat-completion request via the Groq SDK.
     Falls back gracefully on any error.
     """
     try:
+        if not os.environ.get("GROQ_API_KEY"):
+            return "[AI Unavailable] GROQ_API_KEY is not set"
+
         response = _client.chat.completions.create(
-            model=MODEL_NAME,
+            model=_MODEL_NAME,
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
@@ -139,13 +139,40 @@ Why is this signal being generated now?"""
     return _call_llm(prompt)
 
 
+def get_llm_explanation(
+    symbol: str,
+    action: str,
+    rsi: float,
+    macd_hist: float,
+    dist_ema_50: float,
+    ret: float,
+) -> str | None:
+    """
+    Lightweight single-sentence explainer used by `inference.py`.
+    Returns None if AI is unavailable.
+    """
+    if not os.environ.get("GROQ_API_KEY"):
+        return None
+
+    prompt = (
+        "You are a trading analyst.\n"
+        f"Stock: {symbol}, Action: {action}\n"
+        f"RSI={rsi:.1f}, MACD={macd_hist:.3f}, EMA50={dist_ema_50:.3f}, Return={ret:.2f}%.\n"
+        "Explain in ONE short sentence."
+    )
+
+    text = _call_llm(prompt)
+    if text.startswith("[AI Unavailable]"):
+        return None
+    return text.strip()
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Self-Test
 # ──────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print(f"Testing xAI Grok integration — model: {MODEL_NAME}")
-    print(f"Base URL: {API_BASE_URL}\n")
+    print(f"Testing Groq integration — model: {_MODEL_NAME}\n")
 
     test_features = {"rsi_14": 28.5, "volume_ratio": 2.1}
     test_portfolio = {"total_return_pct": 5.2, "shares_held": 0}
