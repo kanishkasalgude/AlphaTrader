@@ -84,6 +84,11 @@ def _maybe_print_llm_insight(
     if insight:
         print(f"LLM Insight: {insight}")
 
+
+def _safe_msg(text: str) -> str:
+    # Avoid console encoding issues on some Windows terminals (e.g., em-dash rendering)
+    return str(text).replace("—", "-")
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -327,7 +332,7 @@ def run_task1(df: pd.DataFrame) -> dict:
     print(f"Return : {result['total_return_pct']:.4f}%")
     print(f"Sharpe : {result['sharpe_ratio']:.4f}")
     print(f"MaxDD  : {result['max_drawdown_pct']:.4f}%")
-    print(f"Result : {grade['message']}")
+    print(f"Result : {_safe_msg(grade['message'])}")
 
     print("\n[END]")
     print(f"score: {grade['score']}")
@@ -376,7 +381,7 @@ def run_task2(df: pd.DataFrame) -> dict:
         print(f"{symbol:<20}  return={result['total_return_pct']:>7.2f}%  sharpe={result['sharpe_ratio']:>6.3f}")
 
     grade = grade_task2(all_ph, INITIAL_CAPITAL)
-    print(f"Result : {grade['message']}")
+    print(f"Result : {_safe_msg(grade['message'])}")
 
     print("\n[END]")
     print(f"score: {grade['score']}")
@@ -429,7 +434,7 @@ def run_task3(df: pd.DataFrame) -> dict:
 
     print(f"Return : {result['total_return_pct']:.4f}%")
     print(f"MaxDD  : {result['max_drawdown_pct']:.4f}%")
-    print(f"Result : {grade['message']}")
+    print(f"Result : {_safe_msg(grade['message'])}")
 
     print("\n[END]")
     print(f"score: {grade['score']}")

@@ -48,10 +48,5 @@ RUN mkdir -p logs
 COPY test_imports.py ./
 RUN python test_imports.py
 
-# Lightweight UI app for Hugging Face runtime
-COPY app.py ./
-COPY server.py ./
-
-# Run inference once, then start a Gradio UI (keeps Space healthy)
-# Hugging Face provides $PORT at runtime.
-CMD ["bash", "-lc", "python -u inference.py && python -u app.py"]
+# Run inference (CLI output only)
+CMD ["python", "-u", "inference.py"]
