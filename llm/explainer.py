@@ -1,8 +1,8 @@
 """
-AlphaTrader-RL | LLM Explainer (Groq)
-====================================
-Uses Groq's native Python SDK (no OpenAI-compat shim) to generate
-plain-English explanations of trading decisions.
+AlphaTrader-RL | LLM Explainer (Hugging Face)
+=============================================
+Uses Hugging Face Inference via `huggingface_hub.InferenceClient` (no Groq / no OpenAI shim)
+to generate plain-English explanations of trading decisions.
 
 Functions
 ---------
@@ -19,20 +19,15 @@ import logging
 import os
 from typing import Any, Dict
 
-from groq import Groq
+from huggingface_hub import InferenceClient
 
 logger = logging.getLogger("LLMExplainer")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Groq client (native)
+# Hugging Face Inference client
 # ──────────────────────────────────────────────────────────────────────────────
-_client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
-_FALLBACK_MODELS = [
-    # Groq production models (see https://console.groq.com/docs/models)
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-]
-_MODEL_NAME = os.environ.get("MODEL_NAME", _FALLBACK_MODELS[0])
+_MODEL_NAME = os.environ.get("MODEL_NAME", "mistralai/Mistral-7B-Instruct-v0.3")
+_client = InferenceClient(model=_MODEL_NAME, token=os.environ.get("HF_TOKEN", ""))
 
 _SYSTEM_PROMPT = (
     "You are a professional financial analyst for AlphaTrader-RL. "
@@ -42,45 +37,22 @@ _SYSTEM_PROMPT = (
 
 def _call_llm(prompt: str) -> str:
     """
-    Send a chat-completion request via the Groq SDK.
+    Send a text-generation request via Hugging Face Inference.
     Falls back gracefully on any error.
     """
     try:
-        if not os.environ.get("GROQ_API_KEY"):
-            return "[AI Unavailable] GROQ_API_KEY is not set"
+        if not os.environ.get("HF_TOKEN"):
+            return "[AI Unavailable] HF_TOKEN is not set"
 
-        try:
-            response = _client.chat.completions.create(
-                model=_MODEL_NAME,
-                messages=[
-                    {"role": "system", "content": _SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.4,
-                max_tokens=512,
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as exc:
-            # If the configured model is decommissioned/invalid, retry with fallbacks.
-            msg = str(exc)
-            if "model_decommissioned" in msg or "decommissioned" in msg or "invalid" in msg:
-                for m in _FALLBACK_MODELS:
-                    if m == _MODEL_NAME:
-                        continue
-                    try:
-                        response = _client.chat.completions.create(
-                            model=m,
-                            messages=[
-                                {"role": "system", "content": _SYSTEM_PROMPT},
-                                {"role": "user", "content": prompt},
-                            ],
-                            temperature=0.4,
-                            max_tokens=512,
-                        )
-                        return response.choices[0].message.content.strip()
-                    except Exception:
-                        continue
-            raise
+        # For generic text-generation models, include system prompt inline.
+        full_prompt = f"{_SYSTEM_PROMPT}\n\n{prompt}"
+        text = _client.text_generation(
+            full_prompt,
+            max_new_tokens=80,
+            temperature=0.4,
+            return_full_text=False,
+        )
+        return str(text).strip()
     except Exception as exc:
         logger.error("LLM call failed: %s", exc)
         return f"[AI Unavailable] {exc}"
@@ -194,7 +166,7 @@ def get_llm_explanation(
 # ──────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print(f"Testing Groq integration — model: {_MODEL_NAME} (fallbacks: {', '.join(_FALLBACK_MODELS)})\n")
+    print(f"Testing Hugging Face integration — model: {_MODEL_NAME}\n")
 
     test_features = {"rsi_14": 28.5, "volume_ratio": 2.1}
     test_portfolio = {"total_return_pct": 5.2, "shares_held": 0}
