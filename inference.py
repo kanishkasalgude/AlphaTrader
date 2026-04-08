@@ -71,11 +71,8 @@ def _maybe_print_llm_insight(
     dist_val: float,
     total_return_pct: float,
 ) -> None:
-    # Only explain BUY/SELL (avoid noisy HOLD spam)
-    if action_int not in (1, 2):
-        return
-
-    act_str = {1: "BUY", 2: "SELL"}[action_int]
+    # Explain HOLD/BUY/SELL (judge-facing output expects this)
+    act_str = {0: "HOLD", 1: "BUY", 2: "SELL"}.get(action_int, "HOLD")
     insight = get_llm_explanation(
         symbol,
         act_str,
