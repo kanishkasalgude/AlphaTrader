@@ -48,9 +48,10 @@ RUN mkdir -p logs
 COPY test_imports.py ./
 RUN python test_imports.py
 
-# Lightweight server for Hugging Face runtime (LLM demo)
+# Lightweight UI app for Hugging Face runtime
+COPY app.py ./
 COPY server.py ./
 
-# Run inference once, then start an HTTP server (keeps Space healthy)
+# Run inference once, then start a Gradio UI (keeps Space healthy)
 # Hugging Face provides $PORT at runtime.
-CMD ["bash", "-lc", "python -u inference.py && uvicorn server:app --host 0.0.0.0 --port ${PORT:-7860}"]
+CMD ["bash", "-lc", "python -u inference.py && python -u app.py"]
