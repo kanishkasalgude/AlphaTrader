@@ -63,6 +63,8 @@ _con_handler.setFormatter(_fmt)
 log.addHandler(_file_handler)
 log.addHandler(_con_handler)
 
+_SUMMARY_ONLY = os.environ.get("OPENENV_SUMMARY_ONLY", "").strip() in {"1", "true", "TRUE", "yes", "YES"}
+
 def _maybe_print_llm_insight(
     symbol: str,
     action_int: int,
@@ -130,7 +132,8 @@ def load_data() -> pd.DataFrame:
             "Run data/pipeline.py first."
         )
     df = pd.read_parquet(PARQUET_PATH)
-    log.info(f"Loaded data: {len(df)} rows | symbols: {df['Symbol'].unique().tolist()}")
+    if not _SUMMARY_ONLY:
+        log.info(f"Loaded data: {len(df)} rows | symbols: {df['Symbol'].unique().tolist()}")
     return df
 
 
@@ -181,8 +184,9 @@ def get_symbol_df(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
 
     available = [c for c in FEATURE_COLS if c in sym_df.columns]
     
-    print(f"\n--- Validation for {symbol} ---")
-    print(sym_df[available].head())
+    if not _SUMMARY_ONLY:
+        print(f"\n--- Validation for {symbol} ---")
+        print(sym_df[available].head())
     
     critical = ["rsi_14", "macd_histogram", "dist_ema_50", "close"]
     for c in critical:
@@ -192,7 +196,8 @@ def get_symbol_df(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
                  log.warning(f"Critical column '{c}' for '{symbol}' has {nan_count} NaNs.")
     
     sym_df = sym_df[available].dropna().reset_index(drop=True)
-    print(f"Final usable rows for {symbol}: {len(sym_df)}")
+    if not _SUMMARY_ONLY:
+        print(f"Final usable rows for {symbol}: {len(sym_df)}")
     
     if len(sym_df) < 50:
         raise ValueError(f"Not enough usable rows for '{symbol}': {len(sym_df)}")
@@ -301,6 +306,15 @@ def run_episode(env: TradingEnv, sym: str, task_id: str = "task1", seed: int = S
 # Task runners
 # ---------------------------------------------------------------------------
 def run_task1(df: pd.DataFrame) -> dict:
+    if _SUMMARY_ONLY:
+        # Still run the task, but do not print intermediate output
+        sym_df = get_symbol_df(df, TASK1_SYMBOL)
+        env = TradingEnv(sym_df, initial_capital=INITIAL_CAPITAL)
+        result = run_episode(env, TASK1_SYMBOL, task_id="task1")
+        ph = result.pop("portfolio_history")
+        grade = grade_task1(ph, INITIAL_CAPITAL)
+        return {**grade, "episode": result}
+
     print("[START]")
     print("Task: task1_single_stock\n")
     print("[STEP]")
@@ -341,6 +355,23 @@ def run_task1(df: pd.DataFrame) -> dict:
 
 
 def run_task2(df: pd.DataFrame) -> dict:
+    if _SUMMARY_ONLY:
+        all_ph = []
+        per_stock = {}
+        for symbol in TASK2_SYMBOLS:
+            sym_df = get_symbol_df(df, symbol)
+            env = TradingEnv(sym_df, initial_capital=INITIAL_CAPITAL)
+            result = run_episode(env, symbol, task_id="task2")
+            ph = result.pop("portfolio_history")
+            all_ph.append(ph)
+            per_stock[symbol] = {
+                "return_pct": result["total_return_pct"],
+                "sharpe": result["sharpe_ratio"],
+                "max_dd": result["max_drawdown_pct"],
+            }
+        grade = grade_task2(all_ph, INITIAL_CAPITAL)
+        return {**grade, "per_stock": per_stock}
+
     print("[START]")
     print("Task: task2_multi_stock_portfolio\n")
     print("[STEP]")
@@ -390,6 +421,25 @@ def run_task2(df: pd.DataFrame) -> dict:
 
 
 def run_task3(df: pd.DataFrame) -> dict:
+    if _SUMMARY_ONLY:
+        sym_df = get_symbol_df(df, TASK3_SYMBOL)
+        conservative_reward = RewardCalculator(
+            pnl_scale=0.8,
+            drawdown_penalty_scale=4.0,
+            trade_cost_penalty_scale=1.0,
+            holding_penalty_scale=0.05,
+            holding_penalty_threshold=20,
+        )
+        env = TradingEnv(
+            sym_df,
+            initial_capital=INITIAL_CAPITAL,
+            reward_calculator=conservative_reward,
+        )
+        result = run_episode(env, TASK3_SYMBOL, task_id="task3")
+        ph = result.pop("portfolio_history")
+        grade = grade_task3(ph, INITIAL_CAPITAL)
+        return {**grade, "episode": result}
+
     print("[START]")
     print("Task: task3_volatile_survival\n")
     print("[STEP]")
@@ -458,10 +508,11 @@ def main() -> int:
     TASK3_SYMBOL = args.task3
 
     start_time = time.time()
-    log.info("AlphaTrader-RL | OpenEnv Inference")
-    log.info(f"Seed: {SEED} | Initial capital: {INITIAL_CAPITAL:,.0f}")
+    if not _SUMMARY_ONLY:
+        log.info("AlphaTrader-RL | OpenEnv Inference")
+        log.info(f"Seed: {SEED} | Initial capital: {INITIAL_CAPITAL:,.0f}")
 
-    df = load_data()
+    df = load_data() if not _SUMMARY_ONLY else pd.read_parquet(PARQUET_PATH)
 
     results = []
 
@@ -495,14 +546,16 @@ def main() -> int:
         "results":              results,
     }
 
-    log.info("=" * 55)
-    log.info(f"FINAL: {passed_count}/{len(results)} tasks passed")
-    log.info(f"Total runtime: {total_elapsed}s")
+    if not _SUMMARY_ONLY:
+        log.info("=" * 55)
+        log.info(f"FINAL: {passed_count}/{len(results)} tasks passed")
+        log.info(f"Total runtime: {total_elapsed}s")
 
     output_path = "inference_results.json"
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, default=str)
-    log.info(f"Results written to: {output_path}")
+    if not _SUMMARY_ONLY:
+        log.info(f"Results written to: {output_path}")
 
     print("\n" + "=" * 55)
     print("OPENENV RESULTS")

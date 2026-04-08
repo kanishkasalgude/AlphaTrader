@@ -53,4 +53,5 @@ COPY keepalive.py ./
 
 # Run inference (CLI output), then keep Space alive by binding $PORT.
 # No UI files/pages are served; this is only to satisfy Spaces health checks.
+ENV OPENENV_SUMMARY_ONLY=1
 CMD ["sh", "-c", "python -u inference.py && python -u keepalive.py"]
