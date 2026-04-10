@@ -55,7 +55,7 @@ export default function App() {
             const mockObs = Array(36).fill(0).map(() => Math.random() * 2 - 1);
             const mockPrice = 100 + Math.random() * 20;
 
-            const resp = await axios.post('/api/trade', {
+            const resp = await axios.put('/api/trade', {
                 symbol,
                 features: { "rsi_14": 45 + Math.random() * 10, "volume_ratio": 1.2 },
                 current_price: mockPrice,

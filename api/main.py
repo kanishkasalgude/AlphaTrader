@@ -65,7 +65,7 @@ state = AppState()
 async def root():
     return {"message": "AlphaTrader-RL API is online", "status": "healthy"}
 
-@app.post("/backtest")
+@app.put("/backtest")
 async def execute_backtest(req: BacktestRequest):
     """
     Triggers a backtest for a specific symbol and returns the summary metrics.
@@ -88,7 +88,7 @@ async def get_portfolio(symbol: str):
         raise HTTPException(status_code=404, detail="Trader not initialized for this symbol.")
     return state.traders[symbol].get_status()
 
-@app.post("/trade")
+@app.put("/trade")
 async def post_trade(req: TradeRequest):
     """
     Executes a single paper trade step based on provided observation and price.
