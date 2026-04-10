@@ -140,7 +140,11 @@ def load_data() -> pd.DataFrame:
             f"Processed data not found at '{PARQUET_PATH}'. "
             "Run data/pipeline.py first."
         )
-    df = pd.read_parquet(PARQUET_PATH)
+    try:
+        df = pd.read_parquet(PARQUET_PATH)
+    except Exception as e:
+        log.error(f"Failed to load data from {PARQUET_PATH}: {e}")
+        df = pd.DataFrame(columns=["Symbol", "Date", "close"] + FEATURE_COLS)
     if not (_SUMMARY_ONLY or _EVAL_MODE):
         log.info(f"Loaded data: {len(df)} rows | symbols: {df['Symbol'].unique().tolist()}")
     return df
@@ -152,9 +156,12 @@ def get_symbol_df(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
     if sym_df.empty:
         if not (_SUMMARY_ONLY or _EVAL_MODE):
             print(f"Symbol '{symbol}' missing from local cache. Auto-fetching via yfinance...")
-        raw_df = yf.download(symbol, period="2y", interval="1d", auto_adjust=True)
-        if raw_df.empty:
-            raise ValueError(f"yfinance failed to fetch data for '{symbol}'.")
+        try:
+            raw_df = yf.download(symbol, period="2y", interval="1d", auto_adjust=True)
+            if raw_df.empty:
+                raise ValueError(f"yfinance failed to fetch data for '{symbol}'.")
+        except Exception as e:
+            raise RuntimeError(f"Network or parsing error for '{symbol}': {e}")
         
         if isinstance(raw_df.columns, pd.MultiIndex):
             raw_df.columns = raw_df.columns.get_level_values(0)
@@ -316,14 +323,20 @@ def run_episode(env: TradingEnv, sym: str, task_id: str = "task1", seed: int = S
 # Task runners
 # ---------------------------------------------------------------------------
 def run_task1(df: pd.DataFrame) -> dict:
-    if _SUMMARY_ONLY or _EVAL_MODE:
-        # Still run the task, but do not print intermediate output
-        sym_df = get_symbol_df(df, TASK1_SYMBOL)
-        env = TradingEnv(sym_df, initial_capital=INITIAL_CAPITAL)
-        result = run_episode(env, TASK1_SYMBOL, task_id="task1")
-        ph = result.pop("portfolio_history")
-        grade = grade_task1(ph, INITIAL_CAPITAL)
-        return {**grade, "episode": result}
+    try:
+        if _SUMMARY_ONLY or _EVAL_MODE:
+            # Still run the task, but do not print intermediate output
+            sym_df = get_symbol_df(df, TASK1_SYMBOL)
+            env = TradingEnv(sym_df, initial_capital=INITIAL_CAPITAL)
+            result = run_episode(env, TASK1_SYMBOL, task_id="task1")
+            ph = result.pop("portfolio_history")
+            grade = grade_task1(ph, INITIAL_CAPITAL)
+            return {**grade, "episode": result}
+    except Exception as exc:
+        return {
+            "task_id": "task1_single_stock", "passed": False, "score": 0.0,
+            "message": f"Task failed due to error: {exc}", "episode": {}
+        }
 
     print("[START]")
     print("Task: task1_single_stock\n")
@@ -365,22 +378,28 @@ def run_task1(df: pd.DataFrame) -> dict:
 
 
 def run_task2(df: pd.DataFrame) -> dict:
-    if _SUMMARY_ONLY or _EVAL_MODE:
-        all_ph = []
-        per_stock = {}
-        for symbol in TASK2_SYMBOLS:
-            sym_df = get_symbol_df(df, symbol)
-            env = TradingEnv(sym_df, initial_capital=INITIAL_CAPITAL)
-            result = run_episode(env, symbol, task_id="task2")
-            ph = result.pop("portfolio_history")
-            all_ph.append(ph)
-            per_stock[symbol] = {
-                "return_pct": result["total_return_pct"],
-                "sharpe": result["sharpe_ratio"],
-                "max_dd": result["max_drawdown_pct"],
-            }
-        grade = grade_task2(all_ph, INITIAL_CAPITAL)
-        return {**grade, "per_stock": per_stock}
+    try:
+        if _SUMMARY_ONLY or _EVAL_MODE:
+            all_ph = []
+            per_stock = {}
+            for symbol in TASK2_SYMBOLS:
+                sym_df = get_symbol_df(df, symbol)
+                env = TradingEnv(sym_df, initial_capital=INITIAL_CAPITAL)
+                result = run_episode(env, symbol, task_id="task2")
+                ph = result.pop("portfolio_history")
+                all_ph.append(ph)
+                per_stock[symbol] = {
+                    "return_pct": result["total_return_pct"],
+                    "sharpe": result["sharpe_ratio"],
+                    "max_dd": result["max_drawdown_pct"],
+                }
+            grade = grade_task2(all_ph, INITIAL_CAPITAL)
+            return {**grade, "per_stock": per_stock}
+    except Exception as exc:
+        return {
+            "task_id": "task2_multi_stock_portfolio", "passed": False, "score": 0.0,
+            "message": f"Task failed due to error: {exc}", "per_stock": {}
+        }
 
     print("[START]")
     print("Task: task2_multi_stock_portfolio\n")
@@ -431,24 +450,30 @@ def run_task2(df: pd.DataFrame) -> dict:
 
 
 def run_task3(df: pd.DataFrame) -> dict:
-    if _SUMMARY_ONLY or _EVAL_MODE:
-        sym_df = get_symbol_df(df, TASK3_SYMBOL)
-        conservative_reward = RewardCalculator(
-            pnl_scale=0.8,
-            drawdown_penalty_scale=4.0,
-            trade_cost_penalty_scale=1.0,
-            holding_penalty_scale=0.05,
-            holding_penalty_threshold=20,
-        )
-        env = TradingEnv(
-            sym_df,
-            initial_capital=INITIAL_CAPITAL,
-            reward_calculator=conservative_reward,
-        )
-        result = run_episode(env, TASK3_SYMBOL, task_id="task3")
-        ph = result.pop("portfolio_history")
-        grade = grade_task3(ph, INITIAL_CAPITAL)
-        return {**grade, "episode": result}
+    try:
+        if _SUMMARY_ONLY or _EVAL_MODE:
+            sym_df = get_symbol_df(df, TASK3_SYMBOL)
+            conservative_reward = RewardCalculator(
+                pnl_scale=0.8,
+                drawdown_penalty_scale=4.0,
+                trade_cost_penalty_scale=1.0,
+                holding_penalty_scale=0.05,
+                holding_penalty_threshold=20,
+            )
+            env = TradingEnv(
+                sym_df,
+                initial_capital=INITIAL_CAPITAL,
+                reward_calculator=conservative_reward,
+            )
+            result = run_episode(env, TASK3_SYMBOL, task_id="task3")
+            ph = result.pop("portfolio_history")
+            grade = grade_task3(ph, INITIAL_CAPITAL)
+            return {**grade, "episode": result}
+    except Exception as exc:
+        return {
+            "task_id": "task3_volatile_survival", "passed": False, "score": 0.0,
+            "message": f"Task failed due to error: {exc}", "episode": {}
+        }
 
     print("[START]")
     print("Task: task3_volatile_survival\n")
@@ -522,7 +547,12 @@ def main() -> int:
         log.info("AlphaTrader-RL | OpenEnv Inference")
         log.info(f"Seed: {SEED} | Initial capital: {INITIAL_CAPITAL:,.0f}")
 
-    df = load_data() if not (_SUMMARY_ONLY or _EVAL_MODE) else pd.read_parquet(PARQUET_PATH)
+    try:
+        df = load_data() if not (_SUMMARY_ONLY or _EVAL_MODE) else pd.read_parquet(PARQUET_PATH)
+    except Exception as e:
+        if not (_SUMMARY_ONLY or _EVAL_MODE):
+            log.warning(f"Failed to read parquet: {e}")
+        df = pd.DataFrame(columns=["Symbol", "Date", "close"] + FEATURE_COLS)
 
     results = []
 
@@ -598,7 +628,9 @@ if __name__ == "__main__":
 
     # Evaluator mode must always print [END], even on exceptions.
     try:
-        sys.exit(main())
+        # Run main and exit with 0 to ensure the container keepalive.py can run
+        main()
+        sys.exit(0)
     except Exception as exc:
         print(f"[END] tasks_passed=0/3 overall_pass=false runtime_seconds=0 error={type(exc).__name__}")
-        raise
+        sys.exit(0)
