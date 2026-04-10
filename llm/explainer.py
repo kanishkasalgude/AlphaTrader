@@ -1,33 +1,19 @@
 """
-AlphaTrader-RL | LLM Explainer (OpenAI Proxy)
-=============================================
-Uses the OpenAI client pointed at the LiteLLM proxy injected by OpenEnv
+AlphaTrader-RL | LLM Explainer (OpenAI-compatible Proxy)
+========================================================
+Uses direct HTTP requests to the LiteLLM proxy injected by OpenEnv
 (via API_BASE_URL and API_KEY environment variables).
 
-Functions
----------
-explain_trade(action, features, portfolio_info)
-    → 2-3 sentence explanation of a single trading decision.
-
-explain_backtest_summary(metrics_dict)
-    → paragraph summarising overall agent performance vs Buy-and-Hold.
-
-explain_live_signal(symbol, signal, sentiment, news_summary)
-    → concise rationale for a live trading signal based on sentiment.
+No external LLM library dependency — uses only Python stdlib (urllib).
 """
+import json
 import logging
 import os
+import urllib.request
+import urllib.error
 from typing import Any, Dict
 
-from openai import OpenAI
-
 logger = logging.getLogger("LLMExplainer")
-
-# ──────────────────────────────────────────────────────────────────────────────
-# OpenAI Inference client  — LAZY init so env vars injected at runtime are used
-# ──────────────────────────────────────────────────────────────────────────────
-_client = None
-_client_initialised = False
 
 _SYSTEM_PROMPT = (
     "You are a professional financial analyst for AlphaTrader-RL. "
@@ -35,49 +21,44 @@ _SYSTEM_PROMPT = (
 )
 
 
-def _get_client() -> OpenAI | None:
-    """Return (and cache) an OpenAI client using the injected env vars."""
-    global _client, _client_initialised
-    if _client_initialised:
-        return _client
-    _client_initialised = True
-    api_base = os.environ.get("API_BASE_URL", "")
-    api_key = os.environ.get("API_KEY", "")
-    if api_base and api_key:
-        logger.info("Initialising OpenAI client: base_url=%s", api_base)
-        _client = OpenAI(base_url=api_base, api_key=api_key)
-    else:
-        logger.warning("API_BASE_URL=%r  API_KEY=%r — LLM client NOT created",
-                        api_base, bool(api_key))
-    return _client
-
-
-def _get_model() -> str:
-    return os.environ.get("MODEL_NAME", "gpt-3.5-turbo")
-
-
 def _call_llm(prompt: str) -> str:
     """
-    Send a chat-completion request via the OpenAI proxy.
+    Send a chat-completion request directly via HTTP POST to the OpenAI-
+    compatible proxy.  Uses only stdlib (urllib) — zero external deps.
     Falls back gracefully on any error.
     """
-    try:
-        client = _get_client()
-        if client is None:
-            return "[AI Unavailable] API_BASE_URL or API_KEY is not set"
+    api_base = os.environ.get("API_BASE_URL", "").strip().rstrip("/")
+    api_key = os.environ.get("API_KEY", "").strip()
+    model = os.environ.get("MODEL_NAME", "gpt-3.5-turbo").strip()
 
-        response = client.chat.completions.create(
-            model=_get_model(),
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=80,
-            temperature=0.4,
-        )
-        return response.choices[0].message.content.strip()
+    if not api_base or not api_key:
+        logger.warning("_call_llm: API_BASE_URL=%r  API_KEY set=%s",
+                        api_base, bool(api_key))
+        return "[AI Unavailable] API_BASE_URL or API_KEY is not set"
+
+    url = f"{api_base}/chat/completions"
+    payload = json.dumps({
+        "model": model,
+        "messages": [
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ],
+        "max_tokens": 80,
+        "temperature": 0.4,
+    }).encode("utf-8")
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+    }
+
+    try:
+        req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+            return body["choices"][0]["message"]["content"].strip()
     except Exception as exc:
-        logger.error("LLM call failed: %s", exc)
+        logger.error("LLM HTTP call failed: %s", exc)
         return f"[AI Unavailable] {exc}"
 
 
@@ -189,7 +170,8 @@ def get_llm_explanation(
 # ──────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print(f"Testing OpenAI proxy integration — model: {_get_model()}\n")
+    model = os.environ.get("MODEL_NAME", "gpt-3.5-turbo")
+    print(f"Testing OpenAI proxy integration — model: {model}\n")
 
     test_features = {"rsi_14": 28.5, "volume_ratio": 2.1}
     test_portfolio = {"total_return_pct": 5.2, "shares_held": 0}
@@ -202,4 +184,3 @@ if __name__ == "__main__":
         "TATASTEEL.NS", "BUY", 0.75,
         "Strong quarterly earnings reported today."
     ))
-
