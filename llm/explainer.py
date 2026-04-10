@@ -19,15 +19,20 @@ import logging
 import os
 from typing import Any, Dict
 
-from huggingface_hub import InferenceClient
+from openai import OpenAI
 
 logger = logging.getLogger("LLMExplainer")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Hugging Face Inference client
+# OpenAI Inference client
 # ──────────────────────────────────────────────────────────────────────────────
-_MODEL_NAME = os.environ.get("MODEL_NAME", "mistralai/Mistral-7B-Instruct-v0.3")
-_client = InferenceClient(model=_MODEL_NAME, token=os.environ.get("HF_TOKEN", ""))
+_MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-3.5-turbo")
+_client = None
+if os.environ.get("API_BASE_URL") and os.environ.get("API_KEY"):
+    _client = OpenAI(
+        base_url=os.environ.get("API_BASE_URL"),
+        api_key=os.environ.get("API_KEY"),
+    )
 
 _SYSTEM_PROMPT = (
     "You are a professional financial analyst for AlphaTrader-RL. "
@@ -37,22 +42,23 @@ _SYSTEM_PROMPT = (
 
 def _call_llm(prompt: str) -> str:
     """
-    Send a text-generation request via Hugging Face Inference.
+    Send a text-generation request via OpenAI proxy.
     Falls back gracefully on any error.
     """
     try:
-        if not os.environ.get("HF_TOKEN"):
-            return "[AI Unavailable] HF_TOKEN is not set"
+        if not _client:
+            return "[AI Unavailable] API_BASE_URL or API_KEY is not set"
 
-        # For generic text-generation models, include system prompt inline.
-        full_prompt = f"{_SYSTEM_PROMPT}\n\n{prompt}"
-        text = _client.text_generation(
-            full_prompt,
-            max_new_tokens=80,
+        response = _client.chat.completions.create(
+            model=_MODEL_NAME,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=80,
             temperature=0.4,
-            return_full_text=False,
         )
-        return str(text).strip()
+        return response.choices[0].message.content.strip()
     except Exception as exc:
         logger.error("LLM call failed: %s", exc)
         return f"[AI Unavailable] {exc}"
