@@ -32,7 +32,10 @@ import yfinance as yf
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# In eval mode, OpenEnv injects API_BASE_URL and API_KEY.
+# Do NOT load .env which could override them.
+if os.environ.get("OPENENV_EVAL_MODE", "").strip() not in {"1", "true", "TRUE", "yes", "YES"}:
+    load_dotenv()
 
 import numpy as np
 import pandas as pd
@@ -580,6 +583,12 @@ def main() -> int:
     if not (_SUMMARY_ONLY or _EVAL_MODE):
         log.info("AlphaTrader-RL | OpenEnv Inference")
         log.info(f"Seed: {SEED} | Initial capital: {INITIAL_CAPITAL:,.0f}")
+
+    # Diagnostic: show which API env vars are available (masked)
+    _api_base = os.environ.get("API_BASE_URL", "")
+    _api_key  = os.environ.get("API_KEY", "")
+    print(f"[DIAG] API_BASE_URL={'SET ('+_api_base[:30]+'...)' if _api_base else 'NOT SET'}")
+    print(f"[DIAG] API_KEY={'SET (len={len(_api_key)})' if _api_key else 'NOT SET'}")
 
     try:
         df = load_data() if not (_SUMMARY_ONLY or _EVAL_MODE) else pd.read_parquet(PARQUET_PATH)
