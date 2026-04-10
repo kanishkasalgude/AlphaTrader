@@ -20,25 +20,25 @@ _SYSTEM_PROMPT = (
 )
 
 
+from api import API_BASE_URL, API_KEY, MODEL_NAME
+
 def _call_llm(prompt: str) -> str:
     """
     Send a chat-completion request using the OpenAI client.
     Uses proxy injected by OpenEnv.
     Falls back gracefully on any error.
     """
-    # Fallbacks for local testing, but the wrapper might expect exact variable indexing.
-    # To satisfy static analysis checks, we pass exactly os.environ[...] inline:
+    if not API_BASE_URL or not API_KEY:
+        return "[AI Unavailable] API_BASE_URL or API_KEY is not set"
+
     try:
         client = OpenAI(
-            base_url=os.environ["API_BASE_URL"],
-            api_key=os.environ["API_KEY"],
+            base_url=API_BASE_URL,
+            api_key=API_KEY,
         )
         
-        # Ensure model is dynamically fetched without overriding
-        model_name = os.environ.get("MODEL_NAME", "gpt-3.5-turbo").strip()
-
         response = client.chat.completions.create(
-            model=model_name,
+            model=MODEL_NAME,
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},

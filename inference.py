@@ -160,11 +160,12 @@ def get_symbol_df(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
         if not (_SUMMARY_ONLY or _EVAL_MODE):
             print(f"Symbol '{symbol}' missing from local cache. Auto-fetching via yfinance...")
         try:
-            raw_df = yf.download(symbol, period="2y", interval="1d", auto_adjust=True)
+            raw_df = yf.download(symbol, period="2y", interval="1d", auto_adjust=True, timeout=10)
             if raw_df.empty:
-                raise ValueError(f"yfinance failed to fetch data for '{symbol}'.")
+                raise ValueError("Empty data")
         except Exception as e:
-            raise RuntimeError(f"Network or parsing error for '{symbol}': {e}")
+            log.warning(f"yfinance fetch failed for {symbol}: {e}")
+            raise ValueError(f"Symbol '{symbol}' not available")
         
         if isinstance(raw_df.columns, pd.MultiIndex):
             raw_df.columns = raw_df.columns.get_level_values(0)
