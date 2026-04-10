@@ -12,9 +12,13 @@ dependencies = [
     "gymnasium==1.2.3",
     "yfinance==1.2.0",
     "python-dotenv>=1.0.0",
-    "huggingface_hub>=0.23.0"
+    "huggingface_hub>=0.23.0",
+    "openenv-core>=0.2.0"
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
+
+[project.scripts]
+server = "server.app:main"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
