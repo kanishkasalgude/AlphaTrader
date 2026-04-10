@@ -331,6 +331,15 @@ def run_task1(df: pd.DataFrame) -> dict:
             result = run_episode(env, TASK1_SYMBOL, task_id="task1")
             ph = result.pop("portfolio_history")
             grade = grade_task1(ph, INITIAL_CAPITAL)
+
+            # ── LLM explanation (must hit the proxy even in eval mode) ──
+            last_idx = min(env.current_step, env.n_steps - 1)
+            rsi_val  = float(env.df.loc[last_idx, "rsi_14"]) if "rsi_14" in env.df.columns else 50.0
+            macd_val = float(env.df.loc[last_idx, "macd_histogram"]) if "macd_histogram" in env.df.columns else 0.0
+            dist_val = float(env.df.loc[last_idx, "dist_ema_50"]) if "dist_ema_50" in env.df.columns else 0.0
+            act_int  = get_action(env, TASK1_SYMBOL, task_id="task1")
+            _maybe_print_llm_insight(TASK1_SYMBOL, act_int, rsi_val, macd_val, dist_val, result["total_return_pct"])
+
             return {**grade, "episode": result}
     except Exception as exc:
         return {
@@ -382,6 +391,9 @@ def run_task2(df: pd.DataFrame) -> dict:
         if _SUMMARY_ONLY or _EVAL_MODE:
             all_ph = []
             per_stock = {}
+            last_env = None
+            last_symbol = None
+            last_result = None
             for symbol in TASK2_SYMBOLS:
                 sym_df = get_symbol_df(df, symbol)
                 env = TradingEnv(sym_df, initial_capital=INITIAL_CAPITAL)
@@ -393,7 +405,20 @@ def run_task2(df: pd.DataFrame) -> dict:
                     "sharpe": result["sharpe_ratio"],
                     "max_dd": result["max_drawdown_pct"],
                 }
+                last_env = env
+                last_symbol = symbol
+                last_result = result
             grade = grade_task2(all_ph, INITIAL_CAPITAL)
+
+            # ── LLM explanation (must hit the proxy even in eval mode) ──
+            if last_env is not None:
+                last_idx = min(last_env.current_step, last_env.n_steps - 1)
+                rsi_val  = float(last_env.df.loc[last_idx, "rsi_14"]) if "rsi_14" in last_env.df.columns else 50.0
+                macd_val = float(last_env.df.loc[last_idx, "macd_histogram"]) if "macd_histogram" in last_env.df.columns else 0.0
+                dist_val = float(last_env.df.loc[last_idx, "dist_ema_50"]) if "dist_ema_50" in last_env.df.columns else 0.0
+                act_int  = get_action(last_env, last_symbol, task_id="task2")
+                _maybe_print_llm_insight(last_symbol, act_int, rsi_val, macd_val, dist_val, last_result["total_return_pct"])
+
             return {**grade, "per_stock": per_stock}
     except Exception as exc:
         return {
@@ -468,6 +493,15 @@ def run_task3(df: pd.DataFrame) -> dict:
             result = run_episode(env, TASK3_SYMBOL, task_id="task3")
             ph = result.pop("portfolio_history")
             grade = grade_task3(ph, INITIAL_CAPITAL)
+
+            # ── LLM explanation (must hit the proxy even in eval mode) ──
+            last_idx = min(env.current_step, env.n_steps - 1)
+            rsi_val  = float(env.df.loc[last_idx, "rsi_14"]) if "rsi_14" in env.df.columns else 50.0
+            macd_val = float(env.df.loc[last_idx, "macd_histogram"]) if "macd_histogram" in env.df.columns else 0.0
+            dist_val = float(env.df.loc[last_idx, "dist_ema_50"]) if "dist_ema_50" in env.df.columns else 0.0
+            act_int  = get_action(env, TASK3_SYMBOL, task_id="task3")
+            _maybe_print_llm_insight(TASK3_SYMBOL, act_int, rsi_val, macd_val, dist_val, result["total_return_pct"])
+
             return {**grade, "episode": result}
     except Exception as exc:
         return {

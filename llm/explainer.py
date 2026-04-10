@@ -1,8 +1,8 @@
 """
-AlphaTrader-RL | LLM Explainer (Hugging Face)
+AlphaTrader-RL | LLM Explainer (OpenAI Proxy)
 =============================================
-Uses Hugging Face Inference via `huggingface_hub.InferenceClient` (no Groq / no OpenAI shim)
-to generate plain-English explanations of trading decisions.
+Uses the OpenAI client pointed at the LiteLLM proxy injected by OpenEnv
+(via API_BASE_URL and API_KEY environment variables).
 
 Functions
 ---------
@@ -24,15 +24,10 @@ from openai import OpenAI
 logger = logging.getLogger("LLMExplainer")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# OpenAI Inference client
+# OpenAI Inference client  — LAZY init so env vars injected at runtime are used
 # ──────────────────────────────────────────────────────────────────────────────
-_MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-3.5-turbo")
 _client = None
-if os.environ.get("API_BASE_URL") and os.environ.get("API_KEY"):
-    _client = OpenAI(
-        base_url=os.environ.get("API_BASE_URL"),
-        api_key=os.environ.get("API_KEY"),
-    )
+_client_initialised = False
 
 _SYSTEM_PROMPT = (
     "You are a professional financial analyst for AlphaTrader-RL. "
@@ -40,17 +35,39 @@ _SYSTEM_PROMPT = (
 )
 
 
+def _get_client() -> OpenAI | None:
+    """Return (and cache) an OpenAI client using the injected env vars."""
+    global _client, _client_initialised
+    if _client_initialised:
+        return _client
+    _client_initialised = True
+    api_base = os.environ.get("API_BASE_URL", "")
+    api_key = os.environ.get("API_KEY", "")
+    if api_base and api_key:
+        logger.info("Initialising OpenAI client: base_url=%s", api_base)
+        _client = OpenAI(base_url=api_base, api_key=api_key)
+    else:
+        logger.warning("API_BASE_URL=%r  API_KEY=%r — LLM client NOT created",
+                        api_base, bool(api_key))
+    return _client
+
+
+def _get_model() -> str:
+    return os.environ.get("MODEL_NAME", "gpt-3.5-turbo")
+
+
 def _call_llm(prompt: str) -> str:
     """
-    Send a text-generation request via OpenAI proxy.
+    Send a chat-completion request via the OpenAI proxy.
     Falls back gracefully on any error.
     """
     try:
-        if not _client:
+        client = _get_client()
+        if client is None:
             return "[AI Unavailable] API_BASE_URL or API_KEY is not set"
 
-        response = _client.chat.completions.create(
-            model=_MODEL_NAME,
+        response = client.chat.completions.create(
+            model=_get_model(),
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
@@ -172,7 +189,7 @@ def get_llm_explanation(
 # ──────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print(f"Testing Hugging Face integration — model: {_MODEL_NAME}\n")
+    print(f"Testing OpenAI proxy integration — model: {_get_model()}\n")
 
     test_features = {"rsi_14": 28.5, "volume_ratio": 2.1}
     test_portfolio = {"total_return_pct": 5.2, "shares_held": 0}
@@ -185,3 +202,4 @@ if __name__ == "__main__":
         "TATASTEEL.NS", "BUY", 0.75,
         "Strong quarterly earnings reported today."
     ))
+
