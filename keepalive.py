@@ -12,7 +12,6 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_response(204)
         self.end_headers()
 
-<<<<<<< HEAD
     def do_PUT(self):  # noqa: N802
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
@@ -25,9 +24,6 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(b'{"status": "success", "obs": [], "info": {}}')
-
-=======
->>>>>>> ebf22a8b75bf4e291364472ac846ddb372fdcfc4
 
 def main() -> None:
     port = int(os.environ.get("PORT", "7860"))
