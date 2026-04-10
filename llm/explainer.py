@@ -1,9 +1,16 @@
 """
+<<<<<<< HEAD
 AlphaTrader-RL | LLM Explainer (OpenAI-compatible)
 ==================================================
 Uses the OpenAI Python client (`client.chat.completions.create`) against an
 OpenAI-compatible endpoint to generate plain-English explanations of trading
 decisions.
+=======
+AlphaTrader-RL | LLM Explainer (Hugging Face)
+=============================================
+Uses Hugging Face Inference via `huggingface_hub.InferenceClient` (no Groq / no OpenAI shim)
+to generate plain-English explanations of trading decisions.
+>>>>>>> ebf22a8b75bf4e291364472ac846ddb372fdcfc4
 
 Functions
 ---------
@@ -20,11 +27,16 @@ import logging
 import os
 from typing import Any, Dict
 
+<<<<<<< HEAD
 from openai import OpenAI
+=======
+from huggingface_hub import InferenceClient
+>>>>>>> ebf22a8b75bf4e291364472ac846ddb372fdcfc4
 
 logger = logging.getLogger("LLMExplainer")
 
 # ──────────────────────────────────────────────────────────────────────────────
+<<<<<<< HEAD
 # OpenAI-compatible client (hackathon required pattern)
 # ──────────────────────────────────────────────────────────────────────────────
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
@@ -37,6 +49,12 @@ client = OpenAI(
     base_url=API_BASE_URL,
     api_key=HF_TOKEN
 )
+=======
+# Hugging Face Inference client
+# ──────────────────────────────────────────────────────────────────────────────
+_MODEL_NAME = os.environ.get("MODEL_NAME", "mistralai/Mistral-7B-Instruct-v0.3")
+_client = InferenceClient(model=_MODEL_NAME, token=os.environ.get("HF_TOKEN", ""))
+>>>>>>> ebf22a8b75bf4e291364472ac846ddb372fdcfc4
 
 _SYSTEM_PROMPT = (
     "You are a professional financial analyst for AlphaTrader-RL. "
@@ -46,6 +64,7 @@ _SYSTEM_PROMPT = (
 
 def _call_llm(prompt: str) -> str:
     """
+<<<<<<< HEAD
     Send a chat-completions request to an OpenAI-compatible endpoint.
     Returns a short "[AI Unavailable] ..." string on any error.
     """
@@ -58,6 +77,24 @@ def _call_llm(prompt: str) -> str:
             ],
         )
         return (response.choices[0].message.content or "").strip()
+=======
+    Send a text-generation request via Hugging Face Inference.
+    Falls back gracefully on any error.
+    """
+    try:
+        if not os.environ.get("HF_TOKEN"):
+            return "[AI Unavailable] HF_TOKEN is not set"
+
+        # For generic text-generation models, include system prompt inline.
+        full_prompt = f"{_SYSTEM_PROMPT}\n\n{prompt}"
+        text = _client.text_generation(
+            full_prompt,
+            max_new_tokens=80,
+            temperature=0.4,
+            return_full_text=False,
+        )
+        return str(text).strip()
+>>>>>>> ebf22a8b75bf4e291364472ac846ddb372fdcfc4
     except Exception as exc:
         logger.error("LLM call failed: %s", exc)
         return f"[AI Unavailable] {exc}"
@@ -171,7 +208,11 @@ def get_llm_explanation(
 # ──────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     print(f"Testing OpenAI-compatible integration — base_url: {API_BASE_URL} — model: {MODEL_NAME}\n")
+=======
+    print(f"Testing Hugging Face integration — model: {_MODEL_NAME}\n")
+>>>>>>> ebf22a8b75bf4e291364472ac846ddb372fdcfc4
 
     test_features = {"rsi_14": 28.5, "volume_ratio": 2.1}
     test_portfolio = {"total_return_pct": 5.2, "shares_held": 0}

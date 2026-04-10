@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 # Load .env from project root
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
 
+<<<<<<< HEAD
 # OpenAI-compatible config (hackathon)
 HF_TOKEN = os.getenv("HF_TOKEN", "")
 MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1-mini")
@@ -16,3 +17,12 @@ API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
 
 # Backwards-compat exports (some modules may still import these names)
 API_KEY = HF_TOKEN
+=======
+# Hugging Face Inference
+HF_TOKEN = os.getenv("HF_TOKEN", "")
+MODEL_NAME = os.getenv("MODEL_NAME", "mistralai/Mistral-7B-Instruct-v0.3")
+
+# Backwards-compat exports (some modules may still import these names)
+API_KEY = HF_TOKEN
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api-inference.huggingface.co")
+>>>>>>> ebf22a8b75bf4e291364472ac846ddb372fdcfc4
