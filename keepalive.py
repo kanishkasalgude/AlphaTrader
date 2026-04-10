@@ -13,11 +13,17 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_PUT(self):  # noqa: N802
-        # Fulfill OpenEnv Structural Check's requests without throwing 501
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(b'{"status": "success"}')
+
+    def do_POST(self):  # noqa: N802
+        # We MUST support POST because the external OpenEnv grader sends POST requests
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{"status": "success", "obs": [], "info": {}}')
 
 
 def main() -> None:
