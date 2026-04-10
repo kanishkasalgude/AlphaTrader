@@ -9,9 +9,8 @@ No external LLM library dependency — uses only Python stdlib (urllib).
 import json
 import logging
 import os
-import urllib.request
-import urllib.error
 from typing import Any, Dict
+from openai import OpenAI
 
 logger = logging.getLogger("LLMExplainer")
 
@@ -23,8 +22,8 @@ _SYSTEM_PROMPT = (
 
 def _call_llm(prompt: str) -> str:
     """
-    Send a chat-completion request directly via HTTP POST to the OpenAI-
-    compatible proxy.  Uses only stdlib (urllib) — zero external deps.
+    Send a chat-completion request using the OpenAI client.
+    Uses proxy injected by OpenEnv.
     Falls back gracefully on any error.
     """
     api_base = os.environ.get("API_BASE_URL", "").strip().rstrip("/")
@@ -36,29 +35,24 @@ def _call_llm(prompt: str) -> str:
                         api_base, bool(api_key))
         return "[AI Unavailable] API_BASE_URL or API_KEY is not set"
 
-    url = f"{api_base}/chat/completions"
-    payload = json.dumps({
-        "model": model,
-        "messages": [
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
-        "max_tokens": 80,
-        "temperature": 0.4,
-    }).encode("utf-8")
-
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}",
-    }
-
     try:
-        req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-            return body["choices"][0]["message"]["content"].strip()
+        client = OpenAI(
+            base_url=api_base,
+            api_key=api_key,
+        )
+        
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=80,
+            temperature=0.4,
+        )
+        return response.choices[0].message.content.strip()
     except Exception as exc:
-        logger.error("LLM HTTP call failed: %s", exc)
+        logger.error("LLM call failed: %s", exc)
         return f"[AI Unavailable] {exc}"
 
 
