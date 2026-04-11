@@ -30,12 +30,7 @@ import random
 import argparse
 import yfinance as yf
 
-from dotenv import load_dotenv
-
-# In eval mode, OpenEnv injects API_BASE_URL and API_KEY.
-# Do NOT load .env which could override them.
-if os.environ.get("OPENENV_EVAL_MODE", "").strip() not in {"1", "true", "TRUE", "yes", "YES"}:
-    load_dotenv()
+# Judges inject API_KEY and API_BASE_URL directly — never load .env
 
 import numpy as np
 import pandas as pd
